@@ -1,0 +1,73 @@
+import json
+import random
+import string
+
+def load_json(input_file_path):
+    with open(input_file_path, 'r', encoding='utf-8') as json_file:
+        data = json.load(json_file)
+    return data
+
+def generate_multiple_choice_cloze_questions(data):
+    questions = []
+    for chapter in data:
+        for section in chapter['sections']:
+            for subsection in section['subsections']:
+                for paragraph in subsection['paragraphs']:
+                    text = paragraph['sentence']
+                    # Loại bỏ dấu câu ở cuối câu
+                    text = text.rstrip(string.punctuation)
+                    # Phân tích câu văn và tạo câu hỏi
+                    question, cloze_text, answer, options = create_multiple_choice_cloze_question(text)
+                    if question:  # Chỉ thêm câu hỏi vào danh sách nếu có đủ từ để chọn
+                        questions.append({'question': question, 'cloze_text': cloze_text, 'answer': answer, 'options': options})
+    return questions
+
+def create_multiple_choice_cloze_question(text):
+    words = text.split()
+    
+    num_words = min(3, len(words))  # Chọn tối đa 3 từ hoặc ít hơn nếu văn bản có ít hơn 3 từ
+    if num_words == 0:  # Nếu không có từ nào trong câu văn
+        return None, None, None, None
+    
+    # Chọn ngẫu nhiên một từ để thiếu
+    missing_word = random.choice(words)
+    
+    # Chọn ngẫu nhiên một từ nhiễu từ danh sách từ, loại bỏ từ thiếu
+    options = choose_unique_words(words, 3, missing_word)
+    
+    cloze_text = text.replace(missing_word, '______')
+    question = f"Câu sau đây bị thiếu từ nào?\n{cloze_text}"
+    
+    options.append(missing_word)  # Thêm từ bị thiếu vào danh sách đáp án
+    random.shuffle(options)  # Xáo trộn thứ tự các đáp án
+    
+    # Chuyển đổi từng đáp án thành chữ cái A, B, C, D
+    options_with_labels = {}
+    for i, option in enumerate(options):
+        label = chr(65 + i)  # Chuyển đổi thành ký tự từ A đến Z
+        options_with_labels[label] = option
+    
+    # Chuyển đổi vị trí của từ bị thiếu thành A, B, C, D
+    answer = chr(65 + options.index(missing_word))  
+    
+    return question, cloze_text, answer, options_with_labels
+
+def choose_unique_words(words, num_words, missing_word):
+    unique_words = set(words) - set(string.punctuation)  # Loại bỏ các ký tự đặc biệt
+    unique_words = [word for word in unique_words if word != missing_word and '...' not in word and '.' not in word]  # Loại bỏ từ là đáp án và các từ có '...' và '.'
+    unique_words = random.sample(unique_words, k=min(num_words, len(unique_words)))  # Chọn ngẫu nhiên từng từ
+    return unique_words
+
+
+
+if __name__ == '__main__':
+    input_file = 'output.json'  # Thay đổi thành tên file JSON thực tế của bạn
+    data = load_json(input_file)
+    questions = generate_multiple_choice_cloze_questions(data)
+    for i, q in enumerate(questions, 1):
+        print(f"Câu hỏi {i}:")
+        print(q['question'])
+        for option, content in q['options'].items():
+            print(f"{option}: {content}")
+        print("Câu trả lời:", q['answer'])
+        print()
